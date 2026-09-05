@@ -37,8 +37,8 @@
 **/logs/
 judge-sandbox-*/
 judge-sandbox*
-scratch/
-**/data/
+/backend/data/
+backend/data/
 *.mv.db
 *.trace.db
 
