@@ -1,12 +1,12 @@
 # -----------------------------------------------------------------------------
-# Stage 1: Build the Spring Boot application using Maven
+# Stage 1: Build the Spring Boot application using Maven from repo root
 # -----------------------------------------------------------------------------
 FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# Copy pom.xml and source code to build executable JAR
-COPY pom.xml .
-COPY src ./src
+# Copy backend pom and source code
+COPY backend/pom.xml ./
+COPY backend/src ./src
 RUN mvn clean package -DskipTests -B
 
 # -----------------------------------------------------------------------------
