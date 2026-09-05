@@ -5,6 +5,8 @@ import com.oj.platform.dto.request.ProblemCreateRequest;
 import com.oj.platform.dto.request.ProblemUpdateRequest;
 import com.oj.platform.enums.Difficulty;
 import com.oj.platform.repository.ProblemRepository;
+import com.oj.platform.repository.SubmissionRepository;
+import com.oj.platform.repository.TestCaseRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,10 +40,18 @@ class ProblemControllerTest {
     private ProblemRepository problemRepository;
 
     @Autowired
+    private TestCaseRepository testCaseRepository;
+
+    @Autowired
+    private SubmissionRepository submissionRepository;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {
+        submissionRepository.deleteAll();
+        testCaseRepository.deleteAll();
         problemRepository.deleteAll();
     }
 

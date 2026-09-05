@@ -10,6 +10,7 @@ import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { Modal } from '../components/common/Modal';
 import { CodeEditor, DEFAULT_JAVA_BOILERPLATE, DEFAULT_PYTHON_BOILERPLATE } from '../components/editor/CodeEditor';
 import { ExecutionVerdict } from '../components/editor/ExecutionVerdict';
+import { AiAssistantPanel } from '../components/ai/AiAssistantPanel';
 
 export const ProblemDetailPage = () => {
   const { id } = useParams();
@@ -19,7 +20,7 @@ export const ProblemDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Left Panel Tabs: 'description' | 'submissions'
+  // Left Panel Tabs: 'description' | 'submissions' | 'ai_mentor'
   const [activeTab, setActiveTab] = useState('description');
   const [problemSubmissions, setProblemSubmissions] = useState([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
@@ -259,11 +260,23 @@ export const ProblemDetailPage = () => {
               >
                 Submissions {problemSubmissions.length > 0 ? `(${problemSubmissions.length})` : ''}
               </Button>
+              <Button
+                size="sm"
+                variant={activeTab === 'ai_mentor' ? 'primary' : 'outline'}
+                onClick={() => setActiveTab('ai_mentor')}
+                style={{
+                  background: activeTab === 'ai_mentor' ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'transparent',
+                  borderColor: '#818cf8',
+                  color: activeTab === 'ai_mentor' ? '#ffffff' : '#c7d2fe',
+                }}
+              >
+                🤖 AI Mentor
+              </Button>
             </div>
           </div>
 
           <div className="workspace-panel-body">
-            {activeTab === 'description' ? (
+            {activeTab === 'description' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* Problem Statement */}
                 <div>
@@ -365,9 +378,48 @@ export const ProblemDetailPage = () => {
                     </div>
                   </div>
                 )}
+
+                {/* AI Progressive Hint Quick Trigger Banner */}
+                <div
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                    border: '1px solid rgba(129, 140, 248, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <span style={{ fontSize: '1.5rem' }}>💡</span>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#e0e7ff', fontSize: '0.9rem' }}>
+                        Need guidance on this problem?
+                      </div>
+                      <div style={{ color: '#c7d2fe', fontSize: '0.8rem' }}>
+                        Get progressive conceptual hints (Levels 1-3) or diagnose your logic errors with the AI Mentor.
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => setActiveTab('ai_mentor')}
+                    style={{
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Open AI Hints 🤖
+                  </Button>
+                </div>
               </div>
-            ) : (
-              /* Submissions Tab */
+            )}
+
+            {activeTab === 'submissions' && (
               <div>
                 {!isAuthenticated ? (
                   <Alert type="info" message="Sign in to view your submission history for this problem." />
@@ -413,6 +465,19 @@ export const ProblemDetailPage = () => {
                 )}
               </div>
             )}
+
+            {activeTab === 'ai_mentor' && (
+              <div style={{ height: '600px' }}>
+                <AiAssistantPanel
+                  problem={problem}
+                  userCode={sourceCode}
+                  language={language}
+                  lastVerdict={submissionResult?.status}
+                  errorMessage={submissionResult?.errorMessage || submitError}
+                  isOpen={true}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -440,6 +505,39 @@ export const ProblemDetailPage = () => {
               setSubmitError(null);
             }}
           />
+
+          {/* Quick AI Mentor Helper when Error / Wrong Answer occurs */}
+          {(submissionResult && submissionResult.status && submissionResult.status !== 'ACCEPTED' && submissionResult.status !== 'PENDING' && submissionResult.status !== 'RUNNING') && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '0.75rem 1rem',
+                backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                border: '1px solid rgba(99, 102, 241, 0.35)',
+                borderRadius: '8px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.25rem' }}>🤖</span>
+                <span style={{ fontSize: '0.875rem', color: '#c7d2fe' }}>
+                  Stuck on this error or test case? Let AI Mentor analyze your logic!
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => setActiveTab('ai_mentor')}
+                style={{
+                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
+                  fontSize: '0.8rem',
+                }}
+              >
+                Ask AI Mentor &rarr;
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 

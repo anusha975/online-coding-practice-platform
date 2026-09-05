@@ -9,6 +9,7 @@ import com.oj.platform.enums.Language;
 import com.oj.platform.enums.Role;
 import com.oj.platform.repository.ProblemRepository;
 import com.oj.platform.repository.SubmissionRepository;
+import com.oj.platform.repository.TestCaseRepository;
 import com.oj.platform.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.List;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -40,6 +43,9 @@ class SubmissionControllerTest {
     private SubmissionRepository submissionRepository;
 
     @Autowired
+    private TestCaseRepository testCaseRepository;
+
+    @Autowired
     private ProblemRepository problemRepository;
 
     @Autowired
@@ -56,6 +62,7 @@ class SubmissionControllerTest {
     @BeforeEach
     void setUp() throws Exception {
         submissionRepository.deleteAll();
+        testCaseRepository.deleteAll();
         problemRepository.deleteAll();
         userRepository.deleteAll();
 
