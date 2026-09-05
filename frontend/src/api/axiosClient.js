@@ -7,9 +7,13 @@ import axios from 'axios';
  * request interceptor for JWT token injection, and response interceptor for unified error parsing.
  */
 const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
-const API_BASE_URL = rawBaseUrl
-  ? (rawBaseUrl.endsWith('/api') ? rawBaseUrl : `${rawBaseUrl}/api`)
-  : '/api';
+let API_BASE_URL = '/api';
+
+if (rawBaseUrl) {
+  API_BASE_URL = rawBaseUrl.endsWith('/api') ? rawBaseUrl : `${rawBaseUrl}/api`;
+} else if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+  API_BASE_URL = 'https://online-coding-practice-platform-2.onrender.com/api';
+}
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL,
