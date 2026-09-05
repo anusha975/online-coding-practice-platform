@@ -1,0 +1,47 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. Backend Web Service (Spring Boot + Judge Engine + RAG)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: codepulse-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /api/problems
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: h2
+      - key: PORT
+        value: 8080
+      - key: APP_JWT_SECRET
+        generateValue: true
+      - key: APP_JWT_EXPIRATION_MS
+        value: 86400000
+      - key: APP_AI_ENABLED
+        value: "true"
+      - key: APP_AI_API_KEY
+        sync: false # Set your OpenAI / Groq / OpenRouter API key in Render Dashboard
+
+  # ---------------------------------------------------------------------------
+  # 2. Frontend Static Site (React + Vite SPA)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: codepulse-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    plan: free
+    region: oregon
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: codepulse-backend
+          property: host

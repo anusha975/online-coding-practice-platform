@@ -21,11 +21,15 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOrigins(
+                        .allowedOriginPatterns(
                                 "http://localhost:3000",
                                 "http://localhost:5173",
                                 "http://localhost:5174",
-                                "http://127.0.0.1:5173"
+                                "http://127.0.0.1:5173",
+                                "https://*.onrender.com",
+                                "https://*.vercel.app",
+                                "https://*.netlify.app",
+                                "*"
                         )
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                         .allowedHeaders("*")

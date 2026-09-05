@@ -3,15 +3,18 @@ import axios from 'axios';
 /**
  * Centralized Axios HTTP client.
  *
- * Configured with baseURL, request interceptor for JWT token injection,
- * and response interceptor for unified error parsing.
+ * Configured with baseURL (from VITE_API_BASE_URL or fallback to /api),
+ * request interceptor for JWT token injection, and response interceptor for unified error parsing.
  */
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = rawBaseUrl ? `${rawBaseUrl.replace(/\/$/, '')}/api` : '/api';
+
 const axiosClient = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 20000,
 });
 
 // Request Interceptor: Attach JWT token if present in localStorage
