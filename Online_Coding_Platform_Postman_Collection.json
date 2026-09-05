@@ -1,0 +1,352 @@
+{
+  "info": {
+    "_postman_id": "9c673803-46a2-47b3-8e6d-faf5de72792b",
+    "name": "Online Coding Practice Platform API Collection",
+    "description": "Comprehensive Postman test collection for all Auth, Problem, TestCase, Submission, Statistics, and Admin REST APIs with environment variables and response tests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api", "type": "string" },
+    { "key": "userToken", "value": "", "type": "string" },
+    { "key": "adminToken", "value": "", "type": "string" },
+    { "key": "problemId", "value": "1", "type": "string" },
+    { "key": "submissionId", "value": "1", "type": "string" },
+    { "key": "testCaseId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"coder_alice\",\n  \"email\": \"alice@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin_bob\",\n  \"email\": \"admin@platform.com\",\n  \"password\": \"AdminPass123!\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('userToken', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"coder_alice\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('adminToken', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usernameOrEmail\": \"admin@platform.com\",\n  \"password\": \"AdminPass123!\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Problems",
+      "item": [
+        {
+          "name": "Get All Problems (Paginated & Filtered)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/problems?page=0&size=10&sortBy=id&sortDir=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["problems"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" },
+                { "key": "sortBy", "value": "id" },
+                { "key": "sortDir", "value": "asc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Distinct Categories",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/problems/categories", "host": ["{{baseUrl}}"], "path": ["problems", "categories"] }
+          }
+        },
+        {
+          "name": "Get Problem Details by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}"] }
+          }
+        },
+        {
+          "name": "Create Problem (ADMIN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('problemId', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Two Sum\",\n  \"description\": \"Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\",\n  \"difficulty\": \"EASY\",\n  \"category\": \"Arrays\",\n  \"constraints\": \"2 <= nums.length <= 10^4\\n-10^9 <= nums[i] <= 10^9\",\n  \"inputFormat\": \"nums = [2,7,11,15], target = 9\",\n  \"outputFormat\": \"[0,1]\",\n  \"sampleInput\": \"4\\n2 7 11 15\\n9\",\n  \"sampleOutput\": \"0 1\",\n  \"timeLimitMs\": 2000,\n  \"memoryLimitMb\": 256\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/problems", "host": ["{{baseUrl}}"], "path": ["problems"] }
+          }
+        },
+        {
+          "name": "Update Problem (ADMIN)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Two Sum (Updated)\",\n  \"description\": \"Updated problem statement.\",\n  \"difficulty\": \"EASY\",\n  \"category\": \"Arrays\",\n  \"timeLimitMs\": 1500,\n  \"memoryLimitMb\": 256\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}"] }
+          }
+        },
+        {
+          "name": "Delete Problem (ADMIN)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Test Cases",
+      "item": [
+        {
+          "name": "Create Sample Test Case (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": \"4\\n2 7 11 15\\n9\",\n  \"expectedOutput\": \"0 1\",\n  \"hidden\": false\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}/testcases", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}", "testcases"] }
+          }
+        },
+        {
+          "name": "Create Hidden Test Case (ADMIN)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"input\": \"3\\n3 2 4\\n6\",\n  \"expectedOutput\": \"1 2\",\n  \"hidden\": true\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}/testcases", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}", "testcases"] }
+          }
+        },
+        {
+          "name": "Get Sample Test Cases (PUBLIC)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}/testcases/sample", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}", "testcases", "sample"] }
+          }
+        },
+        {
+          "name": "Get All Test Cases (ADMIN)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/problems/{{problemId}}/testcases", "host": ["{{baseUrl}}"], "path": ["problems", "{{problemId}}", "testcases"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Submissions & Code Execution",
+      "item": [
+        {
+          "name": "Submit Java Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('submissionId', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problemId\": {{problemId}},\n  \"language\": \"JAVA\",\n  \"sourceCode\": \"import java.util.Scanner;\\npublic class Solution {\\n    public static void main(String[] args) {\\n        Scanner sc = new Scanner(System.in);\\n        if (!sc.hasNextInt()) return;\\n        int n = sc.nextInt();\\n        int[] a = new int[n];\\n        for (int i = 0; i < n; i++) a[i] = sc.nextInt();\\n        int target = sc.nextInt();\\n        for (int i = 0; i < n; i++) {\\n            for (int j = i + 1; j < n; j++) {\\n                if (a[i] + a[j] == target) {\\n                    System.out.println(i + \\\" \\\" + j);\\n                    return;\\n                }\\n            }\\n        }\\n    }\\n}\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/submissions", "host": ["{{baseUrl}}"], "path": ["submissions"] }
+          }
+        },
+        {
+          "name": "Submit Python Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{userToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"problemId\": {{problemId}},\n  \"language\": \"PYTHON\",\n  \"sourceCode\": \"import sys\\ndef main():\\n    input_data = sys.stdin.read().split()\\n    if not input_data: return\\n    n = int(input_data[0])\\n    nums = [int(x) for x in input_data[1:n+1]]\\n    target = int(input_data[n+1])\\n    seen = {}\\n    for i, num in enumerate(nums):\\n        rem = target - num\\n        if rem in seen:\\n            print(f'{seen[rem]} {i}')\\n            return\\n        seen[num] = i\\nif __name__ == '__main__':\\n    main()\"\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/submissions", "host": ["{{baseUrl}}"], "path": ["submissions"] }
+          }
+        },
+        {
+          "name": "Get Submission Status & Verdict",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/submissions/{{submissionId}}", "host": ["{{baseUrl}}"], "path": ["submissions", "{{submissionId}}"] }
+          }
+        },
+        {
+          "name": "Get My Submissions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/submissions/my?page=0&size=10", "host": ["{{baseUrl}}"], "path": ["submissions", "my"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. User Profile & Statistics",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me", "host": ["{{baseUrl}}"], "path": ["users", "me"] }
+          }
+        },
+        {
+          "name": "Get My Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/me/stats", "host": ["{{baseUrl}}"], "path": ["users", "me", "stats"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Admin Management",
+      "item": [
+        {
+          "name": "Get Admin Platform Stats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/stats", "host": ["{{baseUrl}}"], "path": ["admin", "stats"] }
+          }
+        },
+        {
+          "name": "Get Global Submissions Audit",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/admin/submissions?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["admin", "submissions"] }
+          }
+        },
+        {
+          "name": "Get All Users Directory",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users?page=0&size=20", "host": ["{{baseUrl}}"], "path": ["users"] }
+          }
+        }
+      ]
+    }
+  ]
+}

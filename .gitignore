@@ -1,0 +1,64 @@
+# ==========================================
+# Compiled Class & Build Artifacts
+# ==========================================
+**/target/
+**/*.class
+**/*.jar
+**/*.war
+**/*.nar
+**/*.ear
+**/*.zip
+**/*.tar.gz
+**/*.rar
+
+# ==========================================
+# Node.js & Frontend Artifacts
+# ==========================================
+**/node_modules/
+**/dist/
+**/build/
+.npm
+.eslintcache
+*.tsbuildinfo
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+**/.env
+**/.env.local
+**/.env.*.local
+*.pem
+*.key
+
+# ==========================================
+# Log Files & Judge Sandbox Temporary Dirs
+# ==========================================
+*.log
+**/logs/
+judge-sandbox-*/
+judge-sandbox*
+scratch/
+
+# ==========================================
+# IDE & Editor Files
+# ==========================================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.gemini/
+.agents/
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
