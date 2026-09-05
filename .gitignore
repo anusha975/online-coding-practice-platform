@@ -38,6 +38,9 @@
 judge-sandbox-*/
 judge-sandbox*
 scratch/
+**/data/
+*.mv.db
+*.trace.db
 
 # ==========================================
 # IDE & Editor Files

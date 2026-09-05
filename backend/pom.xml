@@ -67,11 +67,11 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 Database: In-memory SQL engine for automated test suites -->
+        <!-- H2 Database: In-memory/embedded SQL engine for instant local dev & automated test suites -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Spring Boot Starter Validation: DTO input validation (@Valid, @NotNull, etc.) -->
