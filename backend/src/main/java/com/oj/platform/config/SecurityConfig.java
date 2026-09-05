@@ -61,9 +61,8 @@ public class SecurityConfig {
                 // Endpoint Authorization Rules
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints
+                        .requestMatchers("/", "/health", "/api/health", "/error").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/problems/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/*/stats").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()
