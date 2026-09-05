@@ -29,6 +29,13 @@ export const aiApi = {
       mode: 'MISTAKE',
       requestedHintLevel: 2,
     }),
+
+  /**
+   * Request comprehensive educational code review with severity classification
+   * @param {Object} data { problemId, problemTitle, problemCategory, problemDifficulty, problemDescription, sourceCode, programmingLanguage, verdict, errorMessage, executionTime, memoryUsed }
+   * @returns {Promise}
+   */
+  reviewCode: (data) => axiosClient.post('/ai/code-review', data),
 }
 
 export default aiApi

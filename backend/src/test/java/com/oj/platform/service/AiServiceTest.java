@@ -3,6 +3,8 @@ package com.oj.platform.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oj.platform.dto.ai.AiChatRequest;
 import com.oj.platform.dto.ai.AiChatResponse;
+import com.oj.platform.dto.ai.AiCodeReviewRequest;
+import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
 import com.oj.platform.service.impl.OpenAiCompatibleAiService;
@@ -181,5 +183,65 @@ class AiServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).contains("Mistake");
         assertThat(response.getContent()).contains("WRONG_ANSWER").contains("Expected [0, 1]");
+    }
+
+    @Test
+    @DisplayName("reviewCode() - Should analyze ACCEPTED solution with O(N) complexity")
+    void testReviewCodeAccepted() {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemId(1L)
+                .problemTitle("Two Sum")
+                .sourceCode("Map<Integer, Integer> map = new HashMap<>(); for (int i=0; i<nums.length; i++) { int diff = target - nums[i]; if (map.containsKey(diff)) return new int[]{map.get(diff), i}; map.put(nums[i], i); }")
+                .programmingLanguage("JAVA")
+                .verdict("ACCEPTED")
+                .build();
+
+        AiCodeReviewResponse response = aiService.reviewCode(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSummary()).contains("passed");
+        assertThat(response.getTimeComplexity()).isEqualTo("O(N)");
+        assertThat(response.getSpaceComplexity()).isEqualTo("O(N)");
+        assertThat(response.getReadabilityScore()).isNotNull();
+        assertThat(response.getEdgeCases()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("reviewCode() - Should detect O(N^2) complexity and CONFIRMED_ISSUE on WRONG_ANSWER")
+    void testReviewCodeWrongAnswer() {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemId(1L)
+                .problemTitle("Two Sum")
+                .sourceCode("for (int i=0; i<nums.length; i++) { for (int j=0; j<nums.length; j++) { return new int[]{i, j}; } }")
+                .programmingLanguage("JAVA")
+                .verdict("WRONG_ANSWER")
+                .errorMessage("Output [0, 0] != Expected [0, 1]")
+                .build();
+
+        AiCodeReviewResponse response = aiService.reviewCode(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getTimeComplexity()).isEqualTo("O(N^2)");
+        assertThat(response.getBugs()).isNotEmpty();
+        assertThat(response.getBugs().get(0).getSeverity()).isEqualTo("CONFIRMED_ISSUE");
+    }
+
+    @Test
+    @DisplayName("reviewCode() - Should diagnose COMPILATION_ERROR")
+    void testReviewCodeCompilationError() {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemId(1L)
+                .problemTitle("Two Sum")
+                .sourceCode("class Solution { public int[] twoSum() { return null } }")
+                .programmingLanguage("JAVA")
+                .verdict("COMPILATION_ERROR")
+                .errorMessage("';' expected at line 1")
+                .build();
+
+        AiCodeReviewResponse response = aiService.reviewCode(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getSummary()).contains("compilation");
+        assertThat(response.getVerdictAnalysis()).contains("Compilation failed");
     }
 }

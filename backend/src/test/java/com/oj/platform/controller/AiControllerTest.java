@@ -2,6 +2,8 @@ package com.oj.platform.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.oj.platform.dto.ai.AiChatRequest;
+import com.oj.platform.dto.ai.AiCodeReviewRequest;
+import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -230,5 +232,73 @@ class AiControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error", is("Validation Failed")))
                 .andExpect(jsonPath("$.validationErrors.problemDescription", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/ai/code-review - Should return structured code review for ACCEPTED solution")
+    void testCodeReviewAccepted() throws Exception {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemId(1L)
+                .problemTitle("Two Sum")
+                .problemCategory("Arrays")
+                .problemDifficulty("EASY")
+                .problemDescription("Given an array of integers nums and target...")
+                .sourceCode("class Solution { public int[] twoSum(int[] nums, int target) { Map<Integer, Integer> map = new HashMap<>(); for (int i=0; i<nums.length; i++) { int diff = target - nums[i]; if (map.containsKey(diff)) return new int[]{map.get(diff), i}; map.put(nums[i], i); } return new int[]{}; } }")
+                .programmingLanguage("JAVA")
+                .verdict("ACCEPTED")
+                .executionTime(2)
+                .memoryUsed(42000L)
+                .build();
+
+        mockMvc.perform(post("/api/ai/code-review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.summary", containsString("passed")))
+                .andExpect(jsonPath("$.data.timeComplexity", is("O(N)")))
+                .andExpect(jsonPath("$.data.spaceComplexity", is("O(N)")))
+                .andExpect(jsonPath("$.data.readabilityScore", notNullValue()))
+                .andExpect(jsonPath("$.data.edgeCases", notNullValue()))
+                .andExpect(jsonPath("$.data.suggestions", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/ai/code-review - Should identify issues and severity for WRONG_ANSWER verdict")
+    void testCodeReviewWrongAnswer() throws Exception {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemId(1L)
+                .problemTitle("Two Sum")
+                .problemDescription("Given an array of integers nums and target...")
+                .sourceCode("for (int i=0; i<nums.length; i++) { for (int j=0; j<nums.length; j++) { return new int[]{i, j}; } }")
+                .programmingLanguage("JAVA")
+                .verdict("WRONG_ANSWER")
+                .errorMessage("Output: [0, 0], Expected: [0, 1]")
+                .build();
+
+        mockMvc.perform(post("/api/ai/code-review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.bugs[0].severity", is("CONFIRMED_ISSUE")))
+                .andExpect(jsonPath("$.data.timeComplexity", is("O(N^2)")))
+                .andExpect(jsonPath("$.data.verdictAnalysis", containsString("Wrong Answer")));
+    }
+
+    @Test
+    @DisplayName("POST /api/ai/code-review - Should return 400 Bad Request if sourceCode is blank")
+    void testCodeReviewBlankCode() throws Exception {
+        AiCodeReviewRequest request = AiCodeReviewRequest.builder()
+                .problemTitle("Two Sum")
+                .sourceCode("   ")
+                .build();
+
+        mockMvc.perform(post("/api/ai/code-review")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Validation Failed")))
+                .andExpect(jsonPath("$.validationErrors.sourceCode", notNullValue()));
     }
 }

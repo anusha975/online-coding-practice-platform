@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import aiApi from '../../api/aiApi'
 import ProgressiveHintSection from './ProgressiveHintSection'
+import AiCodeReviewPanel from './AiCodeReviewPanel'
 import Button from '../common/Button'
 import Badge from '../common/Badge'
 
@@ -10,15 +11,18 @@ export const AiAssistantPanel = ({
   language,
   lastVerdict,
   errorMessage,
+  executionTime,
+  memoryUsed,
+  initialMode = 'hints',
   isOpen,
   onClose,
 }) => {
-  const [activeMode, setActiveMode] = useState('hints') // 'hints' or 'chat'
+  const [activeMode, setActiveMode] = useState(initialMode) // 'hints', 'review', or 'chat'
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       sender: 'ai',
-      text: `Hello! 👋 I'm your **CodeForge AI Mentor**.\n\nI can help you understand the problem statement, point out subtle logic bugs, explain algorithmic time/space complexity, or guide you step-by-step through our **Progressive Hint System**!\n\nHow can I help you with **${problem?.title || 'this challenge'}**?`,
+      text: `Hello! 👋 I'm your **CodeForge AI Mentor**.\n\nI can help you understand the problem statement, provide **Progressive Hints (Levels 1-4)**, perform deep **Code Reviews**, or answer any debugging questions!\n\nHow can I help you with **${problem?.title || 'this challenge'}**?`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       action: 'GENERAL_GUIDANCE',
     },
@@ -27,6 +31,12 @@ export const AiAssistantPanel = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const messagesEndRef = useRef(null)
+
+  useEffect(() => {
+    if (initialMode) {
+      setActiveMode(initialMode)
+    }
+  }, [initialMode])
 
   useEffect(() => {
     if (activeMode === 'chat') {
@@ -136,13 +146,13 @@ export const AiAssistantPanel = ({
           borderBottom: '1px solid var(--color-border, #334155)',
         }}
       >
-        {/* Toggle Mode: Progressive Hints vs Chat */}
+        {/* Toggle Mode: Progressive Hints vs Code Review vs Chat */}
         <div style={{ display: 'flex', gap: '4px', background: 'rgba(0, 0, 0, 0.3)', padding: '3px', borderRadius: '6px' }}>
           <button
             onClick={() => setActiveMode('hints')}
             style={{
-              padding: '4px 10px',
-              fontSize: '0.8rem',
+              padding: '4px 8px',
+              fontSize: '0.78rem',
               fontWeight: 600,
               borderRadius: '4px',
               border: 'none',
@@ -152,13 +162,29 @@ export const AiAssistantPanel = ({
               transition: 'all 0.15s ease',
             }}
           >
-            💡 Progressive Hints
+            💡 Hints
+          </button>
+          <button
+            onClick={() => setActiveMode('review')}
+            style={{
+              padding: '4px 8px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '4px',
+              border: 'none',
+              cursor: 'pointer',
+              background: activeMode === 'review' ? '#6366f1' : 'transparent',
+              color: activeMode === 'review' ? '#ffffff' : '#94a3b8',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            📝 Code Review
           </button>
           <button
             onClick={() => setActiveMode('chat')}
             style={{
-              padding: '4px 10px',
-              fontSize: '0.8rem',
+              padding: '4px 8px',
+              fontSize: '0.78rem',
               fontWeight: 600,
               borderRadius: '4px',
               border: 'none',
@@ -168,7 +194,7 @@ export const AiAssistantPanel = ({
               transition: 'all 0.15s ease',
             }}
           >
-            💬 Mentor Chat
+            💬 Chat
           </button>
         </div>
 
@@ -219,6 +245,21 @@ export const AiAssistantPanel = ({
             language={language}
             lastVerdict={lastVerdict}
             errorMessage={errorMessage}
+          />
+        </div>
+      )}
+
+      {/* Mode 2: AI Code Review Section */}
+      {activeMode === 'review' && (
+        <div style={{ flex: 1, minHeight: 0, height: '100%' }}>
+          <AiCodeReviewPanel
+            problem={problem}
+            userCode={userCode}
+            language={language}
+            lastVerdict={lastVerdict}
+            errorMessage={errorMessage}
+            executionTime={executionTime}
+            memoryUsed={memoryUsed}
           />
         </div>
       )}

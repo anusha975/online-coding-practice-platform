@@ -2,6 +2,8 @@ package com.oj.platform.controller;
 
 import com.oj.platform.dto.ai.AiChatRequest;
 import com.oj.platform.dto.ai.AiChatResponse;
+import com.oj.platform.dto.ai.AiCodeReviewRequest;
+import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
 import com.oj.platform.dto.response.ApiResponse;
@@ -18,7 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST Controller for AI-powered coding assistant, progressive hints, and pedagogical mentor interactions.
+ * REST Controller for AI-powered coding assistant, progressive hints, code review, and pedagogical mentor interactions.
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -51,5 +53,18 @@ public class AiController {
 
         AiHintResponse response = aiService.generateHint(request, userId);
         return ResponseEntity.ok(ApiResponse.success("Progressive hint generated successfully", response));
+    }
+
+    @PostMapping("/code-review")
+    public ResponseEntity<ApiResponse<AiCodeReviewResponse>> reviewCode(
+            @Valid @RequestBody AiCodeReviewRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Long userId = (currentUser != null) ? currentUser.getId() : 0L;
+        log.info("Received AI code review request from user ID: {} for problem: {}, verdict: {}",
+                userId, request.getProblemTitle(), request.getVerdict());
+
+        AiCodeReviewResponse response = aiService.reviewCode(request, userId);
+        return ResponseEntity.ok(ApiResponse.success("Code review completed successfully", response));
     }
 }

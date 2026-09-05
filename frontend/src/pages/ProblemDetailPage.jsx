@@ -22,6 +22,7 @@ export const ProblemDetailPage = () => {
 
   // Left Panel Tabs: 'description' | 'submissions' | 'ai_mentor'
   const [activeTab, setActiveTab] = useState('description');
+  const [aiInitialMode, setAiInitialMode] = useState('hints');
   const [problemSubmissions, setProblemSubmissions] = useState([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
@@ -474,6 +475,9 @@ export const ProblemDetailPage = () => {
                   language={language}
                   lastVerdict={submissionResult?.status}
                   errorMessage={submissionResult?.errorMessage || submitError}
+                  executionTime={submissionResult?.executionTime}
+                  memoryUsed={submissionResult?.memoryUsed}
+                  initialMode={aiInitialMode}
                   isOpen={true}
                 />
               </div>
@@ -506,36 +510,66 @@ export const ProblemDetailPage = () => {
             }}
           />
 
-          {/* Quick AI Mentor Helper when Error / Wrong Answer occurs */}
-          {(submissionResult && submissionResult.status && submissionResult.status !== 'ACCEPTED' && submissionResult.status !== 'PENDING' && submissionResult.status !== 'RUNNING') && (
+          {/* Quick AI Mentor & Code Review Helper when Result is available */}
+          {(submissionResult && submissionResult.status && submissionResult.status !== 'PENDING' && submissionResult.status !== 'RUNNING') && (
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 padding: '0.75rem 1rem',
-                backgroundColor: 'rgba(99, 102, 241, 0.12)',
-                border: '1px solid rgba(99, 102, 241, 0.35)',
+                backgroundColor:
+                  submissionResult.status === 'ACCEPTED'
+                    ? 'rgba(16, 185, 129, 0.1)'
+                    : 'rgba(99, 102, 241, 0.12)',
+                border:
+                  submissionResult.status === 'ACCEPTED'
+                    ? '1px solid rgba(16, 185, 129, 0.3)'
+                    : '1px solid rgba(99, 102, 241, 0.35)',
                 borderRadius: '8px',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '1.25rem' }}>🤖</span>
-                <span style={{ fontSize: '0.875rem', color: '#c7d2fe' }}>
-                  Stuck on this error or test case? Let AI Mentor analyze your logic!
+                <span style={{ fontSize: '0.85rem', color: '#e0e7ff' }}>
+                  {submissionResult.status === 'ACCEPTED'
+                    ? 'Solution accepted! Want an educational code review on complexity & readability?'
+                    : 'Get educational feedback on your bugs, complexity, or progressive hints!'}
                 </span>
               </div>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => setActiveTab('ai_mentor')}
-                style={{
-                  background: 'linear-gradient(135deg, #6366f1, #a855f7)',
-                  fontSize: '0.8rem',
-                }}
-              >
-                Ask AI Mentor &rarr;
-              </Button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    setAiInitialMode('review');
+                    setActiveTab('ai_mentor');
+                  }}
+                  style={{
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  📝 Review Code
+                </Button>
+                {submissionResult.status !== 'ACCEPTED' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setAiInitialMode('hints');
+                      setActiveTab('ai_mentor');
+                    }}
+                    style={{
+                      fontSize: '0.78rem',
+                    }}
+                  >
+                    💡 Hints
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </div>

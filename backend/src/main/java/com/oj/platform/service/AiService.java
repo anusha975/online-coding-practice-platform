@@ -2,6 +2,8 @@ package com.oj.platform.service;
 
 import com.oj.platform.dto.ai.AiChatRequest;
 import com.oj.platform.dto.ai.AiChatResponse;
+import com.oj.platform.dto.ai.AiCodeReviewRequest;
+import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
 
@@ -27,4 +29,13 @@ public interface AiService {
      * @return AI hint response with level details, content, and pedagogical rationale
      */
     AiHintResponse generateHint(AiHintRequest request, Long userId);
+
+    /**
+     * Perform comprehensive code review analyzing correctness, bugs with severity, edge cases, complexity, and suggestions.
+     *
+     * @param request source code, problem metadata, execution verdict, errors
+     * @param userId authenticated user ID
+     * @return structured code review analysis
+     */
+    AiCodeReviewResponse reviewCode(AiCodeReviewRequest request, Long userId);
 }
