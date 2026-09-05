@@ -8,8 +8,14 @@ import com.oj.platform.dto.ai.AiCodeReviewRequest;
 import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
+import com.oj.platform.dto.ai.AiMentorRequest;
+import com.oj.platform.dto.ai.AiMentorResponse;
 import com.oj.platform.dto.ai.CodeReviewBugItem;
 import com.oj.platform.dto.ai.CodeReviewEdgeCase;
+import com.oj.platform.dto.ai.RetrievedSourceItem;
+import com.oj.platform.rag.model.KnowledgeChunk;
+import com.oj.platform.rag.model.ScoredChunk;
+import com.oj.platform.rag.vectorstore.VectorStore;
 import com.oj.platform.service.AiService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +37,7 @@ import java.util.Map;
  *
  * Supports OpenAI (gpt-4o, gpt-4o-mini), Groq, OpenRouter, Ollama, and other compatible LLM APIs.
  * Includes pedagogical coding mentor system prompting, progressive hints (Levels 1-4),
- * structured code reviews with severity classification, and offline fallback diagnostics.
+ * structured code reviews with severity classification, and RAG knowledge retrieval.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,6 +46,7 @@ public class OpenAiCompatibleAiService implements AiService {
 
     private final RestClient aiRestClient;
     private final ObjectMapper objectMapper;
+    private final VectorStore vectorStore;
 
     @Value("${app.ai.enabled:true}")
     private boolean aiEnabled;
@@ -119,6 +126,20 @@ public class OpenAiCompatibleAiService implements AiService {
               "readabilityNotes": "...",
               "suggestions": [ "..." ]
             }
+            """;
+
+    private static final String RAG_MENTOR_SYSTEM_PROMPT = """
+            You are the Principal AI Coding Mentor on CodeForge, powered by a Retrieval-Augmented Generation (RAG) system.
+            Your mission is to provide deeply pedagogical, highly accurate, and grounded explanations of Data Structures,
+            Algorithms, Java concepts, SQL & Databases, Coding Patterns, and Debugging methodologies.
+
+            CRITICAL GROUNDING & PEDAGOGICAL RULES:
+            1. GROUNDING IN RETRIEVED CONTEXT: Use the verified platform knowledge chunks provided in the prompt as your primary factual foundation.
+            2. CITATION & SOURCES: Explicitly cite and reference the relevant concepts and guide sources provided in the context.
+            3. INSUFFICIENT KNOWLEDGE BOUNDARY: If the user's question asks for specific details not supported by the retrieved context, clearly state:
+               "Note: Platform verified documentation on this specific topic is limited. Here is general conceptual guidance..."
+            4. PEDAGOGY: Provide clear explanations, state time/space complexity (Big-O), include clean code examples, and explain 'When to use' vs 'When not to use'.
+            5. FORMATTING: Format your response in clean GitHub Markdown with headers, bullet points, and syntax-highlighted code blocks.
             """;
 
     @Override
@@ -879,6 +900,257 @@ public class OpenAiCompatibleAiService implements AiService {
                 .build();
     }
 
+    @Override
+    public AiMentorResponse mentor(AiMentorRequest request, Long userId) {
+        String question = request.getQuestion() != null ? request.getQuestion().trim() : "";
+        log.info("Processing RAG AI Mentor request for user: {}, topic: {}, question: '{}'",
+                userId, request.getTopic(), question);
+
+        if (!StringUtils.hasText(question)) {
+            return AiMentorResponse.builder()
+                    .answer("Please provide a question about Data Structures, Algorithms, Java, SQL, Coding Patterns, or Debugging.")
+                    .retrievedSources(new ArrayList<>())
+                    .groundedInContext(false)
+                    .isSufficientKnowledgeAvailable(false)
+                    .model("none")
+                    .build();
+        }
+
+        int topK = (request.getTopK() != null && request.getTopK() > 0) ? Math.min(request.getTopK(), 8) : 4;
+        List<ScoredChunk> retrievedChunks = vectorStore.search(
+                question,
+                topK,
+                request.getTopic(),
+                request.getLanguage(),
+                request.getDifficulty()
+        );
+
+        // Evaluate retrieval relevance threshold
+        String cleanQuery = question.toLowerCase();
+        double bestSimilarity = (!retrievedChunks.isEmpty()) ? retrievedChunks.get(0).getSimilarityScore() : 0.0;
+        boolean hasKeywordMatch = !retrievedChunks.isEmpty() && (
+                (retrievedChunks.get(0).getChunk().getConcept() != null && cleanQuery.contains(retrievedChunks.get(0).getChunk().getConcept().toLowerCase()))
+                || (retrievedChunks.get(0).getChunk().getKeywords() != null && retrievedChunks.get(0).getChunk().getKeywords().stream().anyMatch(kw -> cleanQuery.contains(kw.toLowerCase())))
+        );
+        boolean isSufficientKnowledge = (bestSimilarity >= 0.45) || (bestSimilarity >= 0.32 && hasKeywordMatch);
+        boolean isGrounded = !retrievedChunks.isEmpty() && isSufficientKnowledge;
+
+        List<RetrievedSourceItem> sourceItems = new ArrayList<>();
+        for (ScoredChunk sc : retrievedChunks) {
+            KnowledgeChunk chunk = sc.getChunk();
+            String snippet = chunk.getText();
+            if (snippet.length() > 220) {
+                snippet = snippet.substring(0, 220) + "...";
+            }
+            sourceItems.add(RetrievedSourceItem.builder()
+                    .chunkId(chunk.getChunkId())
+                    .documentId(chunk.getDocumentId())
+                    .title(chunk.getTitle())
+                    .concept(chunk.getConcept())
+                    .topic(chunk.getTopic())
+                    .difficulty(chunk.getDifficulty())
+                    .language(chunk.getLanguage())
+                    .source(chunk.getSource())
+                    .similarityScore(Math.round(sc.getSimilarityScore() * 100.0) / 100.0)
+                    .snippet(snippet)
+                    .build());
+        }
+
+        String primaryConcept = (!retrievedChunks.isEmpty()) ? retrievedChunks.get(0).getChunk().getConcept() : "General Programming";
+        String resolvedTopic = (request.getTopic() != null && !request.getTopic().equalsIgnoreCase("ALL"))
+                ? request.getTopic()
+                : (!retrievedChunks.isEmpty() ? retrievedChunks.get(0).getChunk().getTopic() : "GENERAL");
+
+        if (aiEnabled && StringUtils.hasText(apiKey)) {
+            try {
+                AiMentorResponse response = callLlmMentorApi(request, retrievedChunks, isSufficientKnowledge, sourceItems);
+                response.setTopic(resolvedTopic);
+                response.setPrimaryConcept(primaryConcept);
+                return response;
+            } catch (Exception e) {
+                log.warn("LLM API call for AI Mentor failed ({}). Falling back to grounded heuristic mentor engine.", e.getMessage());
+            }
+        }
+
+        AiMentorResponse response = generateHeuristicMentorFallback(request, retrievedChunks, isSufficientKnowledge, sourceItems);
+        response.setTopic(resolvedTopic);
+        response.setPrimaryConcept(primaryConcept);
+        return response;
+    }
+
+    private AiMentorResponse callLlmMentorApi(
+            AiMentorRequest request,
+            List<ScoredChunk> retrievedChunks,
+            boolean isSufficientKnowledge,
+            List<RetrievedSourceItem> sourceItems) throws Exception {
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", RAG_MENTOR_SYSTEM_PROMPT));
+
+        StringBuilder userPrompt = new StringBuilder();
+        userPrompt.append("=== RETRIEVED PLATFORM KNOWLEDGE BASE (TRUSTED SOURCES) ===\n");
+        if (retrievedChunks.isEmpty() || !isSufficientKnowledge) {
+            userPrompt.append("[No high-relevance platform documentation chunks matched. Warn user of limited context]\n\n");
+        } else {
+            for (int i = 0; i < retrievedChunks.size(); i++) {
+                ScoredChunk sc = retrievedChunks.get(i);
+                KnowledgeChunk c = sc.getChunk();
+                userPrompt.append(String.format("--- CHUNK #%d (Score: %.2f | Source: %s | Concept: %s | Topic: %s | Difficulty: %s) ---\n",
+                        i + 1, sc.getSimilarityScore(), c.getSource(), c.getConcept(), c.getTopic(), c.getDifficulty()));
+                userPrompt.append(c.getText()).append("\n\n");
+            }
+        }
+
+        userPrompt.append("=== USER QUESTION ===\n").append(request.getQuestion()).append("\n\n");
+
+        if (StringUtils.hasText(request.getProblemTitle())) {
+            userPrompt.append("Active Problem Context: ").append(request.getProblemTitle()).append("\n");
+        }
+        if (StringUtils.hasText(request.getUserCode())) {
+            userPrompt.append("User's Code Snippet:\n```\n").append(request.getUserCode()).append("\n```\n");
+        }
+
+        userPrompt.append("Please provide an educational, well-grounded response formatted in clean GitHub Markdown.");
+
+        messages.add(Map.of("role", "user", "content", userPrompt.toString()));
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("model", model);
+        requestBody.put("messages", messages);
+        requestBody.put("temperature", 0.3);
+        requestBody.put("max_tokens", 1500);
+
+        String responseJson = aiRestClient.post()
+                .uri(apiUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .body(String.class);
+
+        JsonNode rootNode = objectMapper.readTree(responseJson);
+        String answer = rootNode.path("choices").path(0).path("message").path("content").asText();
+
+        List<String> followUps = generateFollowUpQuestions(request.getQuestion(), retrievedChunks);
+
+        return AiMentorResponse.builder()
+                .answer(answer)
+                .retrievedSources(sourceItems)
+                .groundedInContext(isSufficientKnowledge)
+                .isSufficientKnowledgeAvailable(isSufficientKnowledge)
+                .suggestedFollowUps(followUps)
+                .suggestedAction(detectSuggestedAction(request.getQuestion(), null))
+                .model(model)
+                .build();
+    }
+
+    private AiMentorResponse generateHeuristicMentorFallback(
+            AiMentorRequest request,
+            List<ScoredChunk> retrievedChunks,
+            boolean isSufficientKnowledge,
+            List<RetrievedSourceItem> sourceItems) {
+
+        String question = request.getQuestion();
+        String qLower = question.toLowerCase();
+        StringBuilder answer = new StringBuilder();
+
+        if (retrievedChunks.isEmpty() || !isSufficientKnowledge) {
+            answer.append("> ⚠️ **Platform Documentation Context Notice**\n");
+            answer.append("> Verified platform knowledge base materials have limited direct coverage for this specific query. Here is pedagogical guidance based on core principles:\n\n");
+            answer.append("### Understanding: **").append(question).append("**\n\n");
+            answer.append("When approaching this concept:\n");
+            answer.append("1. **Define the Core Goal**: What is the input, expected invariant, and output state?\n");
+            answer.append("2. **Identify Trade-offs**: Compare time complexity ($O(1)$, $O(\\log N)$, $O(N)$) against memory auxiliary usage.\n");
+            answer.append("3. **Edge Cases**: Always test empty inputs, boundary values, and duplicate elements.\n\n");
+            answer.append("💡 *Tip: Try asking about specific topics like `Binary Search`, `HashMap Collisions`, `Two Pointers`, `Dynamic Programming`, `SQL Indexing`, or `Recursion StackOverflow` to unlock verified platform deep dives!*");
+        } else {
+            ScoredChunk primaryScored = retrievedChunks.get(0);
+            KnowledgeChunk topChunk = primaryScored.getChunk();
+
+            answer.append("## 🧠 Grounded Mentor Guide: ").append(topChunk.getConcept()).append("\n\n");
+            answer.append("> 📚 **Source**: *").append(topChunk.getSource()).append("* | **Topic**: `").append(topChunk.getTopic()).append("` | **Difficulty**: `").append(topChunk.getDifficulty()).append("`\n\n");
+
+            // Combine all matched chunks for complete multi-section knowledge coverage
+            java.util.Set<String> addedTexts = new java.util.HashSet<>();
+            for (ScoredChunk sc : retrievedChunks) {
+                String chunkText = sc.getChunk().getText().trim();
+                if (!addedTexts.contains(chunkText)) {
+                    answer.append(chunkText).append("\n\n");
+                    addedTexts.add(chunkText);
+                }
+            }
+
+            // Provide Actionable Takeaways
+            answer.append("### 🚀 When to Apply This Pattern\n\n");
+            if (qLower.contains("hash") || topChunk.getConcept().contains("HashMap")) {
+                answer.append("- **Use When**: You need instantaneous $O(1)$ key lookups, frequency counting, or membership testing.\n");
+                answer.append("- **Avoid When**: You require keys to remain strictly ordered (use `TreeMap`) or when memory overhead is strictly constrained.\n");
+            } else if (qLower.contains("binary search") || topChunk.getConcept().contains("Binary Search")) {
+                answer.append("- **Use When**: The collection is sorted or monotonic predicate condition `f(x)` applies.\n");
+                answer.append("- **Avoid When**: The dataset is unindexed, unsorted, or dynamic with frequent insertions.\n");
+            } else if (qLower.contains("two pointer") || topChunk.getConcept().contains("Two Pointers")) {
+                answer.append("- **Use When**: Searching for pairs or triplets in sorted arrays, checking palindromes, or partitioning.\n");
+            } else if (qLower.contains("dp") || qLower.contains("dynamic programming")) {
+                answer.append("- **Use When**: The problem exhibits Overlapping Subproblems and Optimal Substructure.\n");
+            } else if (qLower.contains("index") || topChunk.getConcept().contains("Indexing")) {
+                answer.append("- **Use When**: Accelerating `WHERE`, `JOIN`, and `ORDER BY` lookups on large tables with high read frequency.\n");
+            } else if (qLower.contains("recursion") || qLower.contains("stack")) {
+                answer.append("- **Key Defense**: Ensure base cases exist and depth does not exceed stack frame limits (~10,000 frames).\n");
+            } else {
+                answer.append("- Always analyze time/space trade-offs and consider $O(1)$ auxiliary memory optimizations where possible.\n");
+            }
+        }
+
+        List<String> followUps = generateFollowUpQuestions(question, retrievedChunks);
+
+        return AiMentorResponse.builder()
+                .answer(answer.toString())
+                .retrievedSources(sourceItems)
+                .groundedInContext(isSufficientKnowledge)
+                .isSufficientKnowledgeAvailable(isSufficientKnowledge)
+                .suggestedFollowUps(followUps)
+                .suggestedAction(detectSuggestedAction(question, null))
+                .model("codeforge-rag-semantic-v1")
+                .build();
+    }
+
+    private List<String> generateFollowUpQuestions(String question, List<ScoredChunk> chunks) {
+        String q = (question != null) ? question.toLowerCase() : "";
+        List<String> followUps = new ArrayList<>();
+
+        if (q.contains("binary search") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("Binary Search"))) {
+            followUps.add("How do I avoid integer overflow when calculating mid?");
+            followUps.add("How does predicate Binary Search on Answer work?");
+            followUps.add("What is the difference between lower_bound and upper_bound?");
+        } else if (q.contains("hashmap") || q.contains("hash") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("HashMap"))) {
+            followUps.add("When should I use a HashMap vs TreeMap vs LinkedHashMap?");
+            followUps.add("How does HashMap collision resolution work in Java 8+?");
+            followUps.add("What happens if I override equals() but forget hashCode()?");
+        } else if (q.contains("two pointer") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("Two Pointers"))) {
+            followUps.add("How do fast and slow pointers detect linked list cycles?");
+            followUps.add("Can two pointers be used on unsorted arrays?");
+            followUps.add("How does the sliding window pattern relate to two pointers?");
+        } else if (q.contains("dp") || q.contains("dynamic programming") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("Dynamic Programming"))) {
+            followUps.add("When is top-down memoization better than bottom-up tabulation?");
+            followUps.add("How do I optimize DP space complexity using rolling variables?");
+            followUps.add("How do I formulate the state transition equation for Knapsack?");
+        } else if (q.contains("sql") || q.contains("index") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("Indexing"))) {
+            followUps.add("What is the difference between Clustered and Non-Clustered indexes?");
+            followUps.add("How does the leftmost prefix rule work for composite indexes?");
+            followUps.add("Why do B+Trees perform better than Hash indexes for range scans?");
+        } else if (q.contains("recursion") || q.contains("stackoverflow") || (!chunks.isEmpty() && chunks.get(0).getChunk().getConcept().contains("Recursion"))) {
+            followUps.add("How do I convert deep recursion into an explicit Stack iteration?");
+            followUps.add("Why does recursion without memoization explode to O(2^N)?");
+            followUps.add("What is the default JVM stack size limit for recursion?");
+        } else {
+            followUps.add("What is the optimal time and space complexity for this?");
+            followUps.add("What tricky edge cases should I test?");
+            followUps.add("Can you show a concrete implementation example in Java/Python?");
+        }
+
+        return followUps;
+    }
+
     private String detectSuggestedAction(String question, String verdict) {
         String q = (question != null) ? question.toLowerCase() : "";
         if (q.contains("hint")) return "HINT";
@@ -888,5 +1160,6 @@ public class OpenAiCompatibleAiService implements AiService {
         return "GENERAL_GUIDANCE";
     }
 }
+
 
 

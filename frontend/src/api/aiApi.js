@@ -36,6 +36,14 @@ export const aiApi = {
    * @returns {Promise}
    */
   reviewCode: (data) => axiosClient.post('/ai/code-review', data),
+
+  /**
+   * Ask RAG-grounded AI Coding Mentor questions with platform knowledge citations
+   * @param {Object} data { question, topic, difficulty, language, topK, problemId, problemTitle, problemDescription, userCode, conversationHistory }
+   * @returns {Promise} response with answer, retrievedSources, groundedInContext, suggestedFollowUps, suggestedAction
+   */
+  mentor: (data) => axiosClient.post('/ai/mentor', data),
 }
 
 export default aiApi
+

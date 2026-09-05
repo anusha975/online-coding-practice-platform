@@ -6,9 +6,11 @@ import com.oj.platform.dto.ai.AiCodeReviewRequest;
 import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
+import com.oj.platform.dto.ai.AiMentorRequest;
+import com.oj.platform.dto.ai.AiMentorResponse;
 
 /**
- * Provider-agnostic abstraction for AI-powered coding mentorship and progressive hints.
+ * Provider-agnostic abstraction for AI-powered coding mentorship, progressive hints, code review, and RAG knowledge retrieval.
  */
 public interface AiService {
 
@@ -38,4 +40,13 @@ public interface AiService {
      * @return structured code review analysis
      */
     AiCodeReviewResponse reviewCode(AiCodeReviewRequest request, Long userId);
+
+    /**
+     * Answer questions using Retrieval-Augmented Generation (RAG) grounded in platform educational knowledge materials.
+     *
+     * @param request user question, optional topic/difficulty/language filters, problem context
+     * @param userId authenticated user ID
+     * @return grounded mentor answer with source document citations and follow-up prompts
+     */
+    AiMentorResponse mentor(AiMentorRequest request, Long userId);
 }

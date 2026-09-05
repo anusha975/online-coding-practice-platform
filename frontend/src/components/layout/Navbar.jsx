@@ -29,6 +29,13 @@ export const Navbar = () => {
               Problems
             </NavLink>
           </li>
+          <li>
+            <NavLink to="/mentor" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>🧠</span> AI Mentor
+              </span>
+            </NavLink>
+          </li>
           {isAuthenticated && (
             <>
               <li>

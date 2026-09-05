@@ -5,6 +5,8 @@ import com.oj.platform.dto.ai.AiChatRequest;
 import com.oj.platform.dto.ai.AiCodeReviewRequest;
 import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
+import com.oj.platform.dto.ai.AiMentorRequest;
+import com.oj.platform.dto.ai.AiMentorResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -301,4 +303,41 @@ class AiControllerTest {
                 .andExpect(jsonPath("$.error", is("Validation Failed")))
                 .andExpect(jsonPath("$.validationErrors.sourceCode", notNullValue()));
     }
+
+    @Test
+    @DisplayName("POST /api/ai/mentor - Should return grounded answer with sources and follow-ups")
+    void testAiMentorEndpoint() throws Exception {
+        AiMentorRequest request = AiMentorRequest.builder()
+                .question("Explain binary search algorithm and when to use it")
+                .topic("ALGORITHMS")
+                .topK(3)
+                .build();
+
+        mockMvc.perform(post("/api/ai/mentor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.answer", containsString("Binary Search")))
+                .andExpect(jsonPath("$.data.groundedInContext", is(true)))
+                .andExpect(jsonPath("$.data.retrievedSources", notNullValue()))
+                .andExpect(jsonPath("$.data.suggestedFollowUps", notNullValue()));
+    }
+
+    @Test
+    @DisplayName("POST /api/ai/mentor - Should return 400 Bad Request if question is blank")
+    void testAiMentorBlankQuestion() throws Exception {
+        AiMentorRequest request = AiMentorRequest.builder()
+                .question("   ")
+                .topic("ALGORITHMS")
+                .build();
+
+        mockMvc.perform(post("/api/ai/mentor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", is("Validation Failed")))
+                .andExpect(jsonPath("$.validationErrors.question", notNullValue()));
+    }
 }
+

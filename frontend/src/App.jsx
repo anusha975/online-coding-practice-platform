@@ -12,6 +12,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ProblemListPage from './pages/ProblemListPage';
 import ProblemDetailPage from './pages/ProblemDetailPage';
+import AiMentorPage from './pages/AiMentorPage';
 import SubmissionHistoryPage from './pages/SubmissionHistoryPage';
 import ProfilePage from './pages/ProfilePage';
 
@@ -36,6 +37,7 @@ export const App = () => {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/problems" element={<ProblemListPage />} />
             <Route path="/problems/:id" element={<ProblemDetailPage />} />
+            <Route path="/mentor" element={<AiMentorPage />} />
 
             {/* Authenticated User Routes */}
             <Route

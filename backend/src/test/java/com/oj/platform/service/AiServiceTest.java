@@ -7,6 +7,12 @@ import com.oj.platform.dto.ai.AiCodeReviewRequest;
 import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
+import com.oj.platform.dto.ai.AiMentorRequest;
+import com.oj.platform.dto.ai.AiMentorResponse;
+import com.oj.platform.rag.embedding.SemanticFeatureVectorizer;
+import com.oj.platform.rag.knowledge.DefaultKnowledgeBaseProvider;
+import com.oj.platform.rag.pipeline.DocumentIngestionPipeline;
+import com.oj.platform.rag.vectorstore.InMemoryVectorStore;
 import com.oj.platform.service.impl.OpenAiCompatibleAiService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -28,10 +34,17 @@ class AiServiceTest {
     private RestClient restClient;
 
     private OpenAiCompatibleAiService aiService;
+    private InMemoryVectorStore vectorStore;
 
     @BeforeEach
     void setUp() {
-        aiService = new OpenAiCompatibleAiService(restClient, new ObjectMapper());
+        SemanticFeatureVectorizer vectorizer = new SemanticFeatureVectorizer();
+        vectorStore = new InMemoryVectorStore(vectorizer);
+        DefaultKnowledgeBaseProvider provider = new DefaultKnowledgeBaseProvider();
+        DocumentIngestionPipeline pipeline = new DocumentIngestionPipeline(vectorStore, vectorizer, provider);
+        pipeline.initializeKnowledgeBase();
+
+        aiService = new OpenAiCompatibleAiService(restClient, new ObjectMapper(), vectorStore);
         ReflectionTestUtils.setField(aiService, "aiEnabled", true);
         ReflectionTestUtils.setField(aiService, "apiKey", "");
         ReflectionTestUtils.setField(aiService, "apiUrl", "https://api.openai.com/v1/chat/completions");
@@ -244,4 +257,58 @@ class AiServiceTest {
         assertThat(response.getSummary()).contains("compilation");
         assertThat(response.getVerdictAnalysis()).contains("Compilation failed");
     }
+
+    @Test
+    @DisplayName("mentor() - Should return grounded answer and citations for Binary Search question")
+    void testMentorBinarySearch() {
+        AiMentorRequest request = AiMentorRequest.builder()
+                .question("Explain binary search and how to avoid integer overflow")
+                .topic("ALGORITHMS")
+                .topK(3)
+                .build();
+
+        AiMentorResponse response = aiService.mentor(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isGroundedInContext()).isTrue();
+        assertThat(response.isSufficientKnowledgeAvailable()).isTrue();
+        assertThat(response.getRetrievedSources()).isNotEmpty();
+        assertThat(response.getRetrievedSources().get(0).getConcept()).isEqualTo("Binary Search");
+        assertThat(response.getAnswer()).contains("Binary Search").contains("overflow");
+        assertThat(response.getSuggestedFollowUps()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("mentor() - Should return grounded answer for HashMap vs TreeMap question")
+    void testMentorHashMap() {
+        AiMentorRequest request = AiMentorRequest.builder()
+                .question("When should I use a HashMap vs TreeMap?")
+                .topic("DATA_STRUCTURES")
+                .language("Java")
+                .topK(3)
+                .build();
+
+        AiMentorResponse response = aiService.mentor(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.isGroundedInContext()).isTrue();
+        assertThat(response.getRetrievedSources()).isNotEmpty();
+        assertThat(response.getRetrievedSources().get(0).getTopic()).isEqualTo("DATA_STRUCTURES");
+        assertThat(response.getAnswer()).contains("HashMap");
+    }
+
+    @Test
+    @DisplayName("mentor() - Should return notice when no relevant knowledge base document matches")
+    void testMentorInsufficientKnowledgeNotice() {
+        AiMentorRequest request = AiMentorRequest.builder()
+                .question("What is the recipe for baking chocolate cookies?")
+                .topK(3)
+                .build();
+
+        AiMentorResponse response = aiService.mentor(request, 1L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getAnswer()).contains("Platform Documentation Context Notice");
+    }
 }
+

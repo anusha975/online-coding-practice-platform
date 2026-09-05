@@ -6,6 +6,8 @@ import com.oj.platform.dto.ai.AiCodeReviewRequest;
 import com.oj.platform.dto.ai.AiCodeReviewResponse;
 import com.oj.platform.dto.ai.AiHintRequest;
 import com.oj.platform.dto.ai.AiHintResponse;
+import com.oj.platform.dto.ai.AiMentorRequest;
+import com.oj.platform.dto.ai.AiMentorResponse;
 import com.oj.platform.dto.response.ApiResponse;
 import com.oj.platform.security.UserPrincipal;
 import com.oj.platform.service.AiService;
@@ -20,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST Controller for AI-powered coding assistant, progressive hints, code review, and pedagogical mentor interactions.
+ * REST Controller for AI-powered coding assistant, progressive hints, code review, and RAG-grounded mentor interactions.
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -66,5 +68,18 @@ public class AiController {
 
         AiCodeReviewResponse response = aiService.reviewCode(request, userId);
         return ResponseEntity.ok(ApiResponse.success("Code review completed successfully", response));
+    }
+
+    @PostMapping("/mentor")
+    public ResponseEntity<ApiResponse<AiMentorResponse>> mentor(
+            @Valid @RequestBody AiMentorRequest request,
+            @AuthenticationPrincipal UserPrincipal currentUser) {
+
+        Long userId = (currentUser != null) ? currentUser.getId() : 0L;
+        log.info("Received RAG AI Mentor question from user ID: {}, topic: {}, query: '{}'",
+                userId, request.getTopic(), request.getQuestion());
+
+        AiMentorResponse response = aiService.mentor(request, userId);
+        return ResponseEntity.ok(ApiResponse.success("Grounded mentor response generated successfully", response));
     }
 }
